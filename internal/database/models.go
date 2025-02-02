@@ -5,18 +5,31 @@
 package database
 
 import (
-	"database/sql"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Recipe struct {
 	ID           int32
-	UserID       int32
-	Ingredients  sql.NullString
-	Instructions sql.NullString
+	Ingredients  pgtype.Text
+	Instructions pgtype.Text
+}
+
+type RecipeFollow struct {
+	ID       int32
+	RecipeID int32
+	UserID   int32
+}
+
+type RefreshToken struct {
+	Token      string
+	ValidFrom  pgtype.Timestamp
+	ValidUntil pgtype.Timestamp
+	RevokedAt  pgtype.Timestamp
+	UserID     int32
 }
 
 type User struct {
 	ID       int32
-	Username sql.NullString
-	Password sql.NullString
+	Username pgtype.Text
+	Password pgtype.Text
 }

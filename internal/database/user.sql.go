@@ -7,7 +7,30 @@ package database
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+const createUser = `-- name: CreateUser :one
+INSERT INTO users (
+    id, username, password
+) 
+VALUES ($1, $2, $3)
+RETURNING id, username, password
+`
+
+type CreateUserParams struct {
+	ID       int32
+	Username pgtype.Text
+	Password pgtype.Text
+}
+
+func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
+	row := q.db.QueryRow(ctx, createUser, arg.ID, arg.Username, arg.Password)
+	var i User
+	err := row.Scan(&i.ID, &i.Username, &i.Password)
+	return i, err
+}
 
 const getUserByID = `-- name: GetUserByID :one
 SELECT id, username, password FROM users
@@ -15,7 +38,7 @@ WHERE id = $1 LIMIT 1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id int32) (User, error) {
-	row := q.db.QueryRowContext(ctx, getUserByID, id)
+	row := q.db.QueryRow(ctx, getUserByID, id)
 	var i User
 	err := row.Scan(&i.ID, &i.Username, &i.Password)
 	return i, err
