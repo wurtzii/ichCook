@@ -5,13 +5,22 @@
 package database
 
 import (
-	"github.com/jackc/pgx/v5/pgtype"
+	"database/sql"
+	"time"
 )
+
+type Key struct {
+	Token            []byte
+	Type             sql.NullString
+	CreatedAt        sql.NullTime
+	ValidUntil       sql.NullTime
+	SigningRevokedAt sql.NullTime
+}
 
 type Recipe struct {
 	ID           int32
-	Ingredients  pgtype.Text
-	Instructions pgtype.Text
+	Ingredients  sql.NullString
+	Instructions sql.NullString
 }
 
 type RecipeFollow struct {
@@ -22,14 +31,14 @@ type RecipeFollow struct {
 
 type RefreshToken struct {
 	Token      string
-	ValidFrom  pgtype.Timestamp
-	ValidUntil pgtype.Timestamp
-	RevokedAt  pgtype.Timestamp
+	ValidFrom  time.Time
+	ValidUntil time.Time
+	RevokedAt  sql.NullTime
 	UserID     int32
 }
 
 type User struct {
 	ID       int32
-	Username pgtype.Text
-	Password pgtype.Text
+	Username sql.NullString
+	Password sql.NullString
 }

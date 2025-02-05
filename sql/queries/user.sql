@@ -5,6 +5,12 @@ INSERT INTO users (
 VALUES ($1, $2, $3)
 RETURNING *;
 
+-- name: DeleteUserById :one
+DELETE FROM users
+WHERE id = $1
+RETURNING *;
+
 -- name: GetUserByID :one
 SELECT * FROM users
-WHERE id = $1 LIMIT 1;
+WHERE id = $1;
+

@@ -13,7 +13,7 @@ RETURNING *;
 
 -- name: RevokeAllTokens :many
 UPDATE refresh_tokens SET revoked_at = $1
-WHERE user_id = $1
+WHERE user_id = $2
 RETURNING *;
 
 -- name: RemoveRevokedTokens :many

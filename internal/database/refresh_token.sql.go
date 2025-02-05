@@ -7,8 +7,8 @@ package database
 
 import (
 	"context"
-
-	"github.com/jackc/pgx/v5/pgtype"
+	"database/sql"
+	"time"
 )
 
 const createToken = `-- name: CreateToken :one
@@ -20,12 +20,12 @@ RETURNING token, valid_from, valid_until, revoked_at, user_id
 type CreateTokenParams struct {
 	Token      string
 	UserID     int32
-	ValidFrom  pgtype.Timestamp
-	ValidUntil pgtype.Timestamp
+	ValidFrom  time.Time
+	ValidUntil time.Time
 }
 
 func (q *Queries) CreateToken(ctx context.Context, arg CreateTokenParams) (RefreshToken, error) {
-	row := q.db.QueryRow(ctx, createToken,
+	row := q.db.QueryRowContext(ctx, createToken,
 		arg.Token,
 		arg.UserID,
 		arg.ValidFrom,
@@ -48,7 +48,7 @@ WHERE token = $1 and revoked_at <> NULL
 `
 
 func (q *Queries) IsTokenRevoked(ctx context.Context, token string) (RefreshToken, error) {
-	row := q.db.QueryRow(ctx, isTokenRevoked, token)
+	row := q.db.QueryRowContext(ctx, isTokenRevoked, token)
 	var i RefreshToken
 	err := row.Scan(
 		&i.Token,
@@ -67,7 +67,7 @@ RETURNING token, valid_from, valid_until, revoked_at, user_id
 `
 
 func (q *Queries) RemoveRevokedTokens(ctx context.Context, userID int32) ([]RefreshToken, error) {
-	rows, err := q.db.Query(ctx, removeRevokedTokens, userID)
+	rows, err := q.db.QueryContext(ctx, removeRevokedTokens, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -85,6 +85,9 @@ func (q *Queries) RemoveRevokedTokens(ctx context.Context, userID int32) ([]Refr
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -94,12 +97,17 @@ func (q *Queries) RemoveRevokedTokens(ctx context.Context, userID int32) ([]Refr
 
 const revokeAllTokens = `-- name: RevokeAllTokens :many
 UPDATE refresh_tokens SET revoked_at = $1
-WHERE user_id = $1
+WHERE user_id = $2
 RETURNING token, valid_from, valid_until, revoked_at, user_id
 `
 
-func (q *Queries) RevokeAllTokens(ctx context.Context, revokedAt pgtype.Timestamp) ([]RefreshToken, error) {
-	rows, err := q.db.Query(ctx, revokeAllTokens, revokedAt)
+type RevokeAllTokensParams struct {
+	RevokedAt sql.NullTime
+	UserID    int32
+}
+
+func (q *Queries) RevokeAllTokens(ctx context.Context, arg RevokeAllTokensParams) ([]RefreshToken, error) {
+	rows, err := q.db.QueryContext(ctx, revokeAllTokens, arg.RevokedAt, arg.UserID)
 	if err != nil {
 		return nil, err
 	}
@@ -117,6 +125,9 @@ func (q *Queries) RevokeAllTokens(ctx context.Context, revokedAt pgtype.Timestam
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -130,11 +141,11 @@ WHERE token = $2
 `
 
 type RevokeTokenParams struct {
-	RevokedAt pgtype.Timestamp
+	RevokedAt sql.NullTime
 	Token     string
 }
 
 func (q *Queries) RevokeToken(ctx context.Context, arg RevokeTokenParams) error {
-	_, err := q.db.Exec(ctx, revokeToken, arg.RevokedAt, arg.Token)
+	_, err := q.db.ExecContext(ctx, revokeToken, arg.RevokedAt, arg.Token)
 	return err
 }

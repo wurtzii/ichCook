@@ -23,7 +23,7 @@ type FollowRecipeParams struct {
 }
 
 func (q *Queries) FollowRecipe(ctx context.Context, arg FollowRecipeParams) (RecipeFollow, error) {
-	row := q.db.QueryRow(ctx, followRecipe, arg.ID, arg.UserID, arg.RecipeID)
+	row := q.db.QueryRowContext(ctx, followRecipe, arg.ID, arg.UserID, arg.RecipeID)
 	var i RecipeFollow
 	err := row.Scan(&i.ID, &i.RecipeID, &i.UserID)
 	return i, err
@@ -35,7 +35,7 @@ WHERE user_id = $1
 `
 
 func (q *Queries) GetUsersRecipes(ctx context.Context, userID int32) ([]RecipeFollow, error) {
-	rows, err := q.db.Query(ctx, getUsersRecipes, userID)
+	rows, err := q.db.QueryContext(ctx, getUsersRecipes, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -47,6 +47,9 @@ func (q *Queries) GetUsersRecipes(ctx context.Context, userID int32) ([]RecipeFo
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -66,7 +69,7 @@ type UnfollowRecipeParams struct {
 }
 
 func (q *Queries) UnfollowRecipe(ctx context.Context, arg UnfollowRecipeParams) (RecipeFollow, error) {
-	row := q.db.QueryRow(ctx, unfollowRecipe, arg.UserID, arg.RecipeID)
+	row := q.db.QueryRowContext(ctx, unfollowRecipe, arg.UserID, arg.RecipeID)
 	var i RecipeFollow
 	err := row.Scan(&i.ID, &i.RecipeID, &i.UserID)
 	return i, err

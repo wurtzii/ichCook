@@ -16,7 +16,7 @@ RETURNING id, ingredients, instructions
 `
 
 func (q *Queries) DeleteRecipeById(ctx context.Context, id int32) (Recipe, error) {
-	row := q.db.QueryRow(ctx, deleteRecipeById, id)
+	row := q.db.QueryRowContext(ctx, deleteRecipeById, id)
 	var i Recipe
 	err := row.Scan(&i.ID, &i.Ingredients, &i.Instructions)
 	return i, err
@@ -28,7 +28,7 @@ WHERE id = $1 LIMIT 1
 `
 
 func (q *Queries) GetRecipeByID(ctx context.Context, id int32) (Recipe, error) {
-	row := q.db.QueryRow(ctx, getRecipeByID, id)
+	row := q.db.QueryRowContext(ctx, getRecipeByID, id)
 	var i Recipe
 	err := row.Scan(&i.ID, &i.Ingredients, &i.Instructions)
 	return i, err

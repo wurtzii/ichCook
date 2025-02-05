@@ -7,8 +7,7 @@ package database
 
 import (
 	"context"
-
-	"github.com/jackc/pgx/v5/pgtype"
+	"database/sql"
 )
 
 const createUser = `-- name: CreateUser :one
@@ -21,12 +20,25 @@ RETURNING id, username, password
 
 type CreateUserParams struct {
 	ID       int32
-	Username pgtype.Text
-	Password pgtype.Text
+	Username sql.NullString
+	Password sql.NullString
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
-	row := q.db.QueryRow(ctx, createUser, arg.ID, arg.Username, arg.Password)
+	row := q.db.QueryRowContext(ctx, createUser, arg.ID, arg.Username, arg.Password)
+	var i User
+	err := row.Scan(&i.ID, &i.Username, &i.Password)
+	return i, err
+}
+
+const deleteUserById = `-- name: DeleteUserById :one
+DELETE FROM users
+WHERE id = $1
+RETURNING id, username, password
+`
+
+func (q *Queries) DeleteUserById(ctx context.Context, id int32) (User, error) {
+	row := q.db.QueryRowContext(ctx, deleteUserById, id)
 	var i User
 	err := row.Scan(&i.ID, &i.Username, &i.Password)
 	return i, err
@@ -34,11 +46,11 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 
 const getUserByID = `-- name: GetUserByID :one
 SELECT id, username, password FROM users
-WHERE id = $1 LIMIT 1
+WHERE id = $1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id int32) (User, error) {
-	row := q.db.QueryRow(ctx, getUserByID, id)
+	row := q.db.QueryRowContext(ctx, getUserByID, id)
 	var i User
 	err := row.Scan(&i.ID, &i.Username, &i.Password)
 	return i, err
