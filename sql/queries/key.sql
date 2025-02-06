@@ -1,32 +1,22 @@
--- name: CreateKey :one
-INSERT INTO keys(
-    token, created_at, signing_revoked_at, valid_until, type
+-- name: CreateSCKey :one
+INSERT INTO sc_keys(
+    hash_key, block_key, created_at, signing_revoked_at, valid_until
 ) VALUES (
     $1, $2, $3, $4, $5
 )
 RETURNING *;
 
 -- name: GetSecureCookieKey :many
-SELECT * FROM keys
-WHERE type = "secure_cookie";
+SELECT * FROM sc_keys
+ORDER BY created_at ASC;
 
--- name: GetJWTKey :many
-SELECT * FROM keys
-WHERE type = "jwt";
-
--- name: DeleteOldestKeyOfType :one
-DELETE FROM keys
+-- name: DeleteOldestSCKey :one
+DELETE FROM sc_keys
 WHERE created_at = MIN(created_at)
-AND type = $1
 RETURNING *;
 
--- name: GetKeysOfType :many
-SELECT * FROM keys 
-WHERE type = $1
-LIMIT 2;
-
--- name: RevokeSigningOfType :one
-UPDATE keys
+-- name: RevokeSCSigning :one
+UPDATE sc_keys
 SET signing_revoked_at = $1
-WHERE token = $1 AND type = $2
+WHERE token = $1
 RETURNING *;

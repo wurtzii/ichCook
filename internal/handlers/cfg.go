@@ -7,6 +7,6 @@ import(
 
 type ApiConfig struct {
     DQ      *database.Queries
-    OldSC   securecookie.SecureCookie
-    CurrSC  securecookie.SecureCookie
+    OldSC   *securecookie.SecureCookie
+    CurrSC  *securecookie.SecureCookie
 }

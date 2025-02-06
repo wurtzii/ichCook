@@ -8,37 +8,38 @@ package database
 import (
 	"context"
 	"database/sql"
+	"time"
 )
 
-const createKey = `-- name: CreateKey :one
-INSERT INTO keys(
-    token, created_at, signing_revoked_at, valid_until, type
+const createSCKey = `-- name: CreateSCKey :one
+INSERT INTO sc_keys(
+    hash_key, block_key, created_at, signing_revoked_at, valid_until
 ) VALUES (
     $1, $2, $3, $4, $5
 )
-RETURNING token, type, created_at, valid_until, signing_revoked_at
+RETURNING hash_key, block_key, created_at, valid_until, signing_revoked_at
 `
 
-type CreateKeyParams struct {
-	Token            []byte
-	CreatedAt        sql.NullTime
+type CreateSCKeyParams struct {
+	HashKey          []byte
+	BlockKey         []byte
+	CreatedAt        time.Time
 	SigningRevokedAt sql.NullTime
-	ValidUntil       sql.NullTime
-	Type             sql.NullString
+	ValidUntil       time.Time
 }
 
-func (q *Queries) CreateKey(ctx context.Context, arg CreateKeyParams) (Key, error) {
-	row := q.db.QueryRowContext(ctx, createKey,
-		arg.Token,
+func (q *Queries) CreateSCKey(ctx context.Context, arg CreateSCKeyParams) (ScKey, error) {
+	row := q.db.QueryRowContext(ctx, createSCKey,
+		arg.HashKey,
+		arg.BlockKey,
 		arg.CreatedAt,
 		arg.SigningRevokedAt,
 		arg.ValidUntil,
-		arg.Type,
 	)
-	var i Key
+	var i ScKey
 	err := row.Scan(
-		&i.Token,
-		&i.Type,
+		&i.HashKey,
+		&i.BlockKey,
 		&i.CreatedAt,
 		&i.ValidUntil,
 		&i.SigningRevokedAt,
@@ -46,112 +47,42 @@ func (q *Queries) CreateKey(ctx context.Context, arg CreateKeyParams) (Key, erro
 	return i, err
 }
 
-const deleteOldestKeyOfType = `-- name: DeleteOldestKeyOfType :one
-DELETE FROM keys
+const deleteOldestSCKey = `-- name: DeleteOldestSCKey :one
+DELETE FROM sc_keys
 WHERE created_at = MIN(created_at)
-AND type = $1
-RETURNING token, type, created_at, valid_until, signing_revoked_at
+RETURNING hash_key, block_key, created_at, valid_until, signing_revoked_at
 `
 
-func (q *Queries) DeleteOldestKeyOfType(ctx context.Context, type_ sql.NullString) (Key, error) {
-	row := q.db.QueryRowContext(ctx, deleteOldestKeyOfType, type_)
-	var i Key
+func (q *Queries) DeleteOldestSCKey(ctx context.Context) (ScKey, error) {
+	row := q.db.QueryRowContext(ctx, deleteOldestSCKey)
+	var i ScKey
 	err := row.Scan(
-		&i.Token,
-		&i.Type,
+		&i.HashKey,
+		&i.BlockKey,
 		&i.CreatedAt,
 		&i.ValidUntil,
 		&i.SigningRevokedAt,
 	)
 	return i, err
-}
-
-const getJWTKey = `-- name: GetJWTKey :many
-SELECT token, type, created_at, valid_until, signing_revoked_at FROM keys
-WHERE type = "jwt"
-`
-
-func (q *Queries) GetJWTKey(ctx context.Context) ([]Key, error) {
-	rows, err := q.db.QueryContext(ctx, getJWTKey)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Key
-	for rows.Next() {
-		var i Key
-		if err := rows.Scan(
-			&i.Token,
-			&i.Type,
-			&i.CreatedAt,
-			&i.ValidUntil,
-			&i.SigningRevokedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getKeysOfType = `-- name: GetKeysOfType :many
-SELECT token, type, created_at, valid_until, signing_revoked_at FROM keys 
-WHERE type = $1
-LIMIT 2
-`
-
-func (q *Queries) GetKeysOfType(ctx context.Context, type_ sql.NullString) ([]Key, error) {
-	rows, err := q.db.QueryContext(ctx, getKeysOfType, type_)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Key
-	for rows.Next() {
-		var i Key
-		if err := rows.Scan(
-			&i.Token,
-			&i.Type,
-			&i.CreatedAt,
-			&i.ValidUntil,
-			&i.SigningRevokedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 const getSecureCookieKey = `-- name: GetSecureCookieKey :many
-SELECT token, type, created_at, valid_until, signing_revoked_at FROM keys
-WHERE type = "secure_cookie"
+SELECT hash_key, block_key, created_at, valid_until, signing_revoked_at FROM sc_keys
+ORDER BY created_at ASC
 `
 
-func (q *Queries) GetSecureCookieKey(ctx context.Context) ([]Key, error) {
+func (q *Queries) GetSecureCookieKey(ctx context.Context) ([]ScKey, error) {
 	rows, err := q.db.QueryContext(ctx, getSecureCookieKey)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Key
+	var items []ScKey
 	for rows.Next() {
-		var i Key
+		var i ScKey
 		if err := rows.Scan(
-			&i.Token,
-			&i.Type,
+			&i.HashKey,
+			&i.BlockKey,
 			&i.CreatedAt,
 			&i.ValidUntil,
 			&i.SigningRevokedAt,
@@ -169,24 +100,19 @@ func (q *Queries) GetSecureCookieKey(ctx context.Context) ([]Key, error) {
 	return items, nil
 }
 
-const revokeSigningOfType = `-- name: RevokeSigningOfType :one
-UPDATE keys
+const revokeSCSigning = `-- name: RevokeSCSigning :one
+UPDATE sc_keys
 SET signing_revoked_at = $1
-WHERE token = $1 AND type = $2
-RETURNING token, type, created_at, valid_until, signing_revoked_at
+WHERE token = $1
+RETURNING hash_key, block_key, created_at, valid_until, signing_revoked_at
 `
 
-type RevokeSigningOfTypeParams struct {
-	SigningRevokedAt sql.NullTime
-	Type             sql.NullString
-}
-
-func (q *Queries) RevokeSigningOfType(ctx context.Context, arg RevokeSigningOfTypeParams) (Key, error) {
-	row := q.db.QueryRowContext(ctx, revokeSigningOfType, arg.SigningRevokedAt, arg.Type)
-	var i Key
+func (q *Queries) RevokeSCSigning(ctx context.Context, signingRevokedAt sql.NullTime) (ScKey, error) {
+	row := q.db.QueryRowContext(ctx, revokeSCSigning, signingRevokedAt)
+	var i ScKey
 	err := row.Scan(
-		&i.Token,
-		&i.Type,
+		&i.HashKey,
+		&i.BlockKey,
 		&i.CreatedAt,
 		&i.ValidUntil,
 		&i.SigningRevokedAt,

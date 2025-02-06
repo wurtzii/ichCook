@@ -18,10 +18,8 @@ type RefreshKey struct {
     SigningRevoked bool
 }
 
-type SCKey struct {
-    Token            interface{} `json:"token"`
-    Type             string     `json:"type"`
-    CreatedAt        time.Time  `json:"created_at"`
-	ValidUntil       time.Time  `json:"valid_until"`
-    SigningRevokedAt time.Time  `json:"signing_revoked_at"`
+type TimedSC struct {
+    SC              *securecookie.SecureCookie
+    CreatedAt       time.Time  `json:"created_at"`
+	ValidUntil      time.Time  `json:"valid_until"`
 }

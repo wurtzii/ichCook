@@ -9,14 +9,6 @@ import (
 	"time"
 )
 
-type Key struct {
-	Token            []byte
-	Type             sql.NullString
-	CreatedAt        sql.NullTime
-	ValidUntil       sql.NullTime
-	SigningRevokedAt sql.NullTime
-}
-
 type Recipe struct {
 	ID           int32
 	Ingredients  sql.NullString
@@ -35,6 +27,14 @@ type RefreshToken struct {
 	ValidUntil time.Time
 	RevokedAt  sql.NullTime
 	UserID     int32
+}
+
+type ScKey struct {
+	HashKey          []byte
+	BlockKey         []byte
+	CreatedAt        time.Time
+	ValidUntil       time.Time
+	SigningRevokedAt sql.NullTime
 }
 
 type User struct {

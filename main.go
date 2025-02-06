@@ -4,14 +4,12 @@ import (
     "ichCook/internal/database"
     "ichCook/internal/models"
     _ "github.com/lib/pq"
-    "bytes"
     "github.com/joho/godotenv"
     "time"
     "os"
     "log"
     "encoding/gob"
     "context"
-    "ichCook/internal/handlers"
     "github.com/gorilla/securecookie"
     "database/sql"
 )
@@ -28,29 +26,39 @@ func main() {
         log.Fatal(err)
     }
     queries := database.New(dbtx)
-    sc_keys, err := queries.GetSecureCookieKey(context.Background());
-
-    if err != nil {
+    keys, err := queries.GetSecureCookieKey(context.Background());
+    tsc := []models.TimedSC{}
+    gob.Register(&securecookie.SecureCookie{})
+    for _, key := range keys {
+        sc := securecookie.New(key.HashKey, key.BlockKey)
+        tsc = append(tsc, models.TimedSC{
+            SC: sc,
+            CreatedAt: key.CreatedAt,
+            ValidUntil: key.ValidUntil,
+        })
     }
-    gob.Register(securecookie.SecureCookie{})
-    
-    queries.GetKeysOfType()
-    for len(sc_keys) < 2 {
-        // create refresh keys until we have 2
-        rk := models.RefreshKey{
-            Token: securecookie.New(securecookie.GenerateRandomKey(64), securecookie.GenerateRandomKey(32)),
-            ValidFrom: time.Now(),
+
+    if len(tsc) < 2 { // create a new sc key if available
+        hashKey := securecookie.GenerateRandomKey(64)
+        blockKey := securecookie.GenerateRandomKey(32)
+        sc := securecookie.New(hashKey, blockKey)
+        dckp := database.CreateSCKeyParams{
+            HashKey: hashKey,
+            BlockKey: blockKey,
+            CreatedAt: time.Now(),
             ValidUntil: time.Now().AddDate(0, 0, 7),
-            SigningRevoked: false,
         }
-    }
 
-    decoder := gob.NewDecoder()
-    decoder.Decode(sc_keys[0].)
+        _, err := queries.CreateSCKey(context.Background(), dckp)
 
-    _ = handlers.ApiConfig{ 
-        DQ:     queries,
-        OldSC: sc_keys[0].,
-        CurrSC: sc_keys[1],
+        if err != nil {
+            log.Fatal(err)
+        }
+
+        tsc = append(tsc, models.TimedSC{
+            SC: sc,
+            CreatedAt: dckp.CreatedAt,
+            ValidUntil: dckp.ValidUntil,
+        })
     }
 }
